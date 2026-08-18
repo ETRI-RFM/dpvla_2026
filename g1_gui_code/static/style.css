@@ -1,0 +1,741 @@
+:root {
+  /* VSCode Dark+ palette */
+  --bg:          #1E1E1E;       /* editor background */
+  --card:        #252526;       /* side bar / panel */
+  --border:      #3C3C3C;       /* widget border */
+  --text:        #CCCCCC;       /* foreground */
+  --subtle:      #9D9D9D;       /* description fg */
+  --muted:       #6F6F6F;
+  --accent:      #0E639C;       /* button.background */
+  --accent-hov:  #1177BB;       /* button.hoverBackground */
+  --accent-soft: #1F3247;       /* dark blue panel tint */
+  --success:     #4EC264;       /* readable on dark + with white fg */
+  --success-hov: #3DA052;
+  --success-soft:#1E3329;       /* dark green panel tint */
+  --danger:      #F14C4C;       /* errorForeground */
+  --danger-hov:  #C83838;
+  --danger-soft: #3D1F1F;       /* dark red panel tint */
+  --warn:        #CCA700;
+  --chip:        #2A2D2E;       /* list.hoverBackground */
+  --field:       #3C3C3C;       /* input.background */
+  --field-focus: #3C3C3C;
+  --focus-ring:  rgba(0, 122, 204, 0.4);   /* focusBorder #007ACC */
+  --console:     #1E1E1E;       /* matches editor */
+  --console-fg:  #D4D4D4;       /* editor.foreground */
+  --console-dim: #6A6A6A;
+  --console-cmd: #569CD6;       /* keyword blue */
+  --console-ok:  #4EC9B0;       /* type teal */
+  --console-warn:#DCDCAA;       /* function yellow */
+  --console-err: #F14C4C;
+}
+
+* { box-sizing: border-box; }
+html, body {
+  margin: 0;
+  padding: 0;
+  background: var(--bg);
+  color: var(--text);
+  font-family: "Inter", "Ubuntu", -apple-system, BlinkMacSystemFont,
+               "Segoe UI", "Noto Sans KR", sans-serif;
+  font-size: 14px;
+  line-height: 1.5;
+  -webkit-font-smoothing: antialiased;
+}
+
+/* -------- Top bar -------- */
+.topbar {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  padding: 20px 28px 16px;
+  border-bottom: 1px solid var(--border);
+  background: var(--bg);
+  position: sticky;
+  top: 0;
+  z-index: 10;
+}
+.brand h1 {
+  margin: 0;
+  font-size: 22px;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+}
+.brand p {
+  margin: 2px 0 0;
+  color: var(--subtle);
+  font-size: 12px;
+}
+.status-pill {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 6px 12px;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 999px;
+  font-size: 12px;
+  color: var(--subtle);
+}
+.dot {
+  display: inline-block;
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--muted);
+}
+.dot.ok   { background: var(--success); }
+.dot.info { background: var(--accent); }
+.dot.warn { background: var(--warn); }
+.dot.err  { background: var(--danger); }
+
+/* -------- Main / cards -------- */
+main {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  max-width: 1200px;
+  margin: 22px auto;
+  padding: 0 28px;
+}
+
+/* Four-column layout:
+     col-1 = G1 실행 (services)         col-2 = Model + Mode
+     col-3 = Camera view + Inference    col-4 = Recording  */
+main.four-col {
+  display: grid;
+  grid-template-columns: 1fr 1fr 1fr 1fr;
+  gap: 14px;
+  align-items: start;
+  max-width: 2200px;
+}
+main.four-col .col {
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+  min-width: 0;       /* prevents flex children from overflowing horizontally */
+}
+/* Medium-large → 3 columns (col-4 wraps below) */
+@media (max-width: 1700px) {
+  main.four-col {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+  main.four-col .col-4 { grid-column: 1 / -1; }
+}
+/* Medium → 2 columns */
+@media (max-width: 1300px) {
+  main.four-col {
+    grid-template-columns: 1fr 1fr;
+  }
+  main.four-col .col-3, main.four-col .col-4 { grid-column: auto; }
+}
+/* Narrow → single column */
+@media (max-width: 900px) {
+  main.four-col {
+    grid-template-columns: 1fr;
+  }
+}
+
+.card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 20px 24px;
+}
+.card-header h2 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.card-header p {
+  margin: 4px 0 14px;
+  color: var(--subtle);
+  font-size: 12px;
+}
+/* Inline card description for cards that go straight into a <article.service>
+   (no <h2> heading needed — the service block already has its own title). */
+.card-desc {
+  margin: 0 0 4px;
+  color: var(--subtle);
+  font-size: 12px;
+  line-height: 1.5;
+}
+.card-desc code {
+  font-family: "Ubuntu Mono", Consolas, Menlo, monospace;
+  font-size: 11.5px;
+  background: var(--field);
+  border: 1px solid var(--border);
+  padding: 1px 5px;
+  border-radius: 4px;
+  color: var(--text);
+}
+
+/* -------- Service block -------- */
+.service {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 10px;
+  padding: 14px 16px;
+  margin-top: 12px;
+}
+.service > header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+.service .badge {
+  display: inline-flex;
+  width: 28px;
+  height: 28px;
+  align-items: center;
+  justify-content: center;
+  background: var(--accent);
+  color: #fff;
+  border-radius: 6px;
+  font-weight: 700;
+  font-size: 13px;
+}
+.service h3 {
+  margin: 0;
+  font-size: 14px;
+  font-weight: 600;
+  flex: 1;
+}
+.service h3 code {
+  margin-left: 8px;
+  font-family: "Ubuntu Mono", Consolas, Menlo, monospace;
+  font-size: 11.5px;
+  background: var(--field);
+  border: 1px solid var(--border);
+  padding: 2px 6px;
+  border-radius: 4px;
+  font-weight: 400;
+}
+.muted { color: var(--subtle); }
+.state {
+  font-size: 11px;
+  font-weight: 600;
+  padding: 4px 10px;
+  border-radius: 99px;
+  background: var(--chip);
+  color: var(--subtle);
+  letter-spacing: 0.02em;
+  text-transform: lowercase;
+}
+.state[data-state="running"] {
+  background: var(--success-soft);
+  color: var(--success);
+}
+.state[data-state="exited"] {
+  background: var(--chip);
+  color: var(--subtle);
+}
+.state[data-state="failed"] {
+  background: var(--danger-soft);
+  color: var(--danger);
+}
+
+/* Visual run-state — applied via JS to G1 Camera + Brainco Hand cards:
+   ▸ run-ok: Run button clicked and remote binary appears healthy
+   ▸ run-stopped: Stop clicked, [exited with code …], or Traceback seen */
+.service.run-ok {
+  background: var(--success-soft);
+  border-color: #2D5A3D;
+}
+.service.run-ok .badge {
+  background: var(--success);
+}
+.service.run-stopped {
+  background: var(--danger-soft);
+  border-color: #5A2D2D;
+}
+.service.run-stopped .badge {
+  background: var(--danger);
+}
+
+/* -------- Actions / buttons -------- */
+.actions {
+  display: flex;
+  gap: 8px;
+  flex-wrap: wrap;
+  margin-bottom: 12px;
+}
+.btn {
+  padding: 8px 16px;
+  border: 0;
+  border-radius: 8px;
+  font-weight: 600;
+  font-size: 13px;
+  cursor: pointer;
+  font-family: inherit;
+  transition: background 0.15s, opacity 0.15s;
+  white-space: nowrap;
+}
+.btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+}
+.btn-primary  { background: var(--accent);  color: #fff; }
+.btn-primary:hover:not(:disabled)  { background: var(--accent-hov); }
+.btn-success  { background: var(--success); color: #fff; }
+.btn-success:hover:not(:disabled)  { background: var(--success-hov); }
+.btn-danger   { background: var(--danger);  color: #fff; }
+.btn-danger:hover:not(:disabled)   { background: var(--danger-hov); }
+.btn-ghost {
+  background: var(--card);
+  color: var(--text);
+  border: 1px solid var(--border);
+}
+.btn-ghost:hover:not(:disabled) { background: var(--field); }
+
+/* -------- Camera preview (MJPEG) -------- */
+.preview {
+  position: relative;
+  background: var(--console);
+  border-radius: 8px;
+  margin: 0 0 12px;
+  overflow: hidden;
+  min-height: 200px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.preview img {
+  display: block;
+  width: 100%;
+  height: auto;
+  max-height: 480px;
+  object-fit: contain;
+  background: #000;
+}
+.preview-overlay {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  background: rgba(0, 0, 0, 0.55);
+  color: #fff;
+  font-size: 12px;
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-family: "Ubuntu Mono", Consolas, Menlo, monospace;
+  pointer-events: none;
+  letter-spacing: 0.04em;
+  transition: opacity 0.2s;
+}
+.preview.ready .preview-overlay { opacity: 0; }
+
+/* -------- Log console -------- */
+.log {
+  background: var(--console);
+  color: var(--console-fg);
+  font-family: "Ubuntu Mono", Consolas, Menlo, monospace;
+  font-size: 12px;
+  padding: 12px 14px;
+  border-radius: 8px;
+  max-height: 220px;
+  overflow-y: auto;
+  white-space: pre-wrap;
+  word-break: break-word;
+  margin: 0;
+  line-height: 1.45;
+}
+.log::-webkit-scrollbar { width: 10px; }
+.log::-webkit-scrollbar-track { background: transparent; }
+.log::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+}
+
+/* -------- Segmented control -------- */
+.segmented {
+  display: inline-flex;
+  background: var(--chip);
+  border-radius: 8px;
+  padding: 4px;
+  gap: 4px;
+}
+.segmented .seg {
+  background: transparent;
+  border: 0;
+  padding: 7px 16px;
+  font-weight: 600;
+  font-size: 13px;
+  border-radius: 6px;
+  cursor: pointer;
+  color: var(--text);
+  font-family: inherit;
+  transition: background 0.15s;
+}
+.segmented .seg.active {
+  background: var(--accent);
+  color: #fff;
+}
+.segmented .seg:not(.active):hover { background: #37373D; }
+
+/* -------- Form rows -------- */
+.form-row {
+  display: grid;
+  grid-template-columns: 180px 1fr auto;
+  align-items: center;
+  gap: 12px;
+  margin-top: 12px;
+}
+.form-row > label {
+  color: var(--subtle);
+  font-size: 12px;
+  font-weight: 500;
+}
+.form-row > .hint {
+  color: var(--muted);
+  font-size: 11px;
+}
+input[type="text"],
+input[type="number"],
+select {
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 9px 12px;
+  font-size: 13px;
+  font-family: inherit;
+  color: var(--text);
+  outline: none;
+  width: 100%;
+}
+input:focus, select:focus {
+  background: var(--field-focus);
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--focus-ring);
+}
+.radio-group {
+  display: flex;
+  gap: 18px;
+  align-items: center;
+}
+.radio-group label {
+  font-size: 13px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+}
+
+/* -------- Resolved block -------- */
+.resolved {
+  background: var(--accent-soft);
+  padding: 14px 18px;
+  border-radius: 10px;
+  margin-top: 14px;
+  border: 1px solid #2D4A6D;
+}
+.resolved-row {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+}
+.resolved-row .label,
+.resolved-instr .label {
+  color: var(--subtle);
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.05em;
+}
+.resolved-row .value {
+  font-size: 20px;
+  font-weight: 700;
+  color: var(--accent);
+}
+.saved-badge {
+  margin-left: auto;
+  font-size: 11px;
+  color: var(--success);
+  background: var(--success-soft);
+  padding: 4px 10px;
+  border-radius: 99px;
+  font-family: "Ubuntu Mono", Consolas, Menlo, monospace;
+  letter-spacing: 0.02em;
+  opacity: 0;
+  transition: opacity 0.2s;
+}
+.saved-badge:not(:empty) { opacity: 1; }
+.resolved-instr {
+  margin-top: 8px;
+}
+.resolved-instr p {
+  margin: 4px 0 0;
+  color: var(--text);
+  font-size: 13px;
+}
+
+/* -------- Bottom bar -------- */
+.bottombar {
+  position: sticky;
+  bottom: 0;
+  background: var(--bg);
+  border-top: 1px solid var(--border);
+  padding: 12px 28px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-top: 20px;
+  z-index: 10;
+}
+.bottombar.compact {
+  padding: 6px 28px;
+  margin-top: 10px;
+}
+.bottombar.compact .btn-compact {
+  padding: 5px 14px;
+  font-size: 12px;
+}
+#summary {
+  color: var(--subtle);
+  font-size: 12px;
+  max-width: 70%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* -------- Safety gate (shoulder unlock confirmation) -------- */
+/* Lives inside col-1, so no wrapper max-width/margin — the column flow
+   handles spacing. */
+.safety-gate.confirmed .safety-inner {
+  background: var(--success-soft);
+  border-color: #2D5A3D;
+}
+.safety-inner {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 14px;
+  padding: 16px 18px;
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  gap: 14px;
+}
+.safety-img {
+  width: 100%;
+  max-width: 220px;
+  height: auto;
+  border-radius: 8px;
+  background: var(--field);
+  border: 1px solid var(--border);
+  align-self: center;
+}
+.safety-text h3 {
+  margin: 0 0 6px;
+  font-size: 15px;
+  font-weight: 700;
+  color: var(--danger);
+}
+.safety-gate.confirmed .safety-text h3 {
+  color: var(--success);
+}
+.safety-text p {
+  margin: 0;
+  color: var(--text);
+  font-size: 13px;
+  line-height: 1.55;
+}
+.safety-text code {
+  background: var(--field);
+  border: 1px solid var(--border);
+  padding: 1px 6px;
+  border-radius: 4px;
+  font-family: "Ubuntu Mono", Consolas, Menlo, monospace;
+  font-size: 12px;
+}
+.safety-btn {
+  padding: 12px 22px;
+  font-size: 14px;
+}
+.safety-btn:disabled {
+  background: var(--success);
+  color: #fff;
+  opacity: 1;
+  cursor: default;
+}
+
+/* Inference console a bit taller */
+.inference-card .log { max-height: 320px; }
+
+/* Video player */
+.video-list {
+  width: 100%;
+  margin: 12px 0 0;
+  font-family: "Ubuntu Mono", Consolas, Menlo, monospace;
+  font-size: 12px;
+  background: var(--field);
+  border: 1px solid var(--border);
+  border-radius: 8px;
+  padding: 6px;
+  color: var(--text);
+}
+.video-list option {
+  padding: 4px 8px;
+  cursor: pointer;
+}
+.video-player {
+  width: 100%;
+  max-height: 420px;
+  margin-top: 12px;
+  background: #000;
+  border-radius: 8px;
+  display: block;
+}
+.video-player:not([src]),
+.video-player[src=""] {
+  display: none;
+}
+
+/* Recorder status */
+.rec-status {
+  margin: 0 0 12px;
+  padding: 8px 12px;
+  border-radius: 8px;
+  background: var(--field);
+  border: 1px solid var(--border);
+  color: var(--subtle);
+  font-family: "Ubuntu Mono", Consolas, Menlo, monospace;
+  font-size: 12px;
+}
+.rec-status.recording {
+  background: var(--danger-soft);
+  border-color: #5A2D2D;
+  color: var(--danger);
+}
+.rec-status.recording::before {
+  content: "● ";
+  font-size: 14px;
+  animation: rec-blink 1s steps(2) infinite;
+}
+.rec-status.done {
+  background: var(--success-soft);
+  border-color: #2D5A3D;
+  color: var(--success);
+}
+@keyframes rec-blink {
+  50% { opacity: 0.3; }
+}
+
+/* -------- Modal: directory picker -------- */
+.modal {
+  position: fixed;
+  inset: 0;
+  z-index: 100;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.modal[hidden] { display: none; }
+.modal-backdrop {
+  position: absolute;
+  inset: 0;
+  background: rgba(15, 20, 25, 0.45);
+  backdrop-filter: blur(2px);
+}
+.modal-dialog {
+  position: relative;
+  width: min(780px, 92vw);
+  max-height: 84vh;
+  background: var(--card);
+  border-radius: 14px;
+  box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25);
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+}
+.modal-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 16px 22px;
+  border-bottom: 1px solid var(--border);
+}
+.modal-header h3 {
+  margin: 0;
+  font-size: 16px;
+  font-weight: 700;
+}
+.fs-toolbar {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  padding: 12px 22px;
+  border-bottom: 1px solid var(--border);
+  background: var(--field);
+}
+.fs-toolbar input {
+  flex: 1;
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  padding: 7px 10px;
+  font-size: 13px;
+  font-family: "Ubuntu Mono", Consolas, Menlo, monospace;
+}
+.fs-current {
+  padding: 10px 22px;
+  font-family: "Ubuntu Mono", Consolas, Menlo, monospace;
+  font-size: 12px;
+  color: var(--subtle);
+  background: var(--card);
+  border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+  overflow-x: auto;
+}
+.fs-list {
+  list-style: none;
+  margin: 0;
+  padding: 8px 10px;
+  flex: 1;
+  overflow-y: auto;
+  min-height: 280px;
+  background: var(--card);
+}
+.fs-list li {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 7px 12px;
+  border-radius: 6px;
+  cursor: pointer;
+  font-size: 13px;
+  user-select: none;
+}
+.fs-list li:hover { background: var(--field); }
+.fs-list li.is-file {
+  cursor: default;
+  color: var(--muted);
+}
+.fs-list li.is-file:hover { background: transparent; }
+.fs-list .icon {
+  width: 18px;
+  text-align: center;
+  font-size: 14px;
+  color: var(--accent);
+  flex: none;
+}
+.fs-list li.is-file .icon { color: var(--muted); }
+.fs-empty {
+  padding: 30px;
+  text-align: center;
+  color: var(--muted);
+  font-size: 13px;
+}
+.fs-error {
+  padding: 18px 22px;
+  background: var(--danger-soft);
+  color: var(--danger);
+  font-size: 13px;
+  font-family: "Ubuntu Mono", Consolas, Menlo, monospace;
+}
+.modal-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  padding: 14px 22px;
+  border-top: 1px solid var(--border);
+  background: var(--card);
+}

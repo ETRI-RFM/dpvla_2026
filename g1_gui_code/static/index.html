@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+<meta charset="UTF-8">
+<title>G1 Inference</title>
+<link rel="stylesheet" href="/static/style.css?v={{V}}">
+</head>
+<body>
+
+<header class="topbar">
+  <div class="brand">
+    <h1>Unitree G1 evaluation orchestrator</h1>
+  </div>
+  <div class="topbar-right">
+    <span id="global-status" class="status-pill">
+      <span class="dot ok"></span><span class="status-text">ready</span>
+    </span>
+  </div>
+</header>
+
+<main class="four-col">
+
+  <!-- ============================================================ -->
+  <!-- COL 1 — G1 실행 파트 (G1 Camera / Camera Client / Brainco)    -->
+  <!-- ============================================================ -->
+  <div class="col col-1">
+
+    <!-- G1 Camera -->
+    <section class="card">
+      <p class="card-desc">
+        G1 카메라 영상을 송출합니다.
+      </p>
+      <article class="service" data-label="image_server">
+        <header>
+          <span class="badge">1</span>
+          <h3>G1 Camera <code class="muted">image_server.py</code></h3>
+          <span class="state" data-state="idle">idle</span>
+        </header>
+        <div class="actions">
+          <button class="btn btn-primary" data-action="start">Connect</button>
+          <button class="btn btn-success" data-action="send"
+                  data-payload="python image_server.py">
+            ▶ Run image server
+          </button>
+          <button class="btn btn-danger" data-action="stop" data-stop-mode="intr">
+            ■ Stop
+          </button>
+        </div>
+        <pre class="log" data-role="log"></pre>
+      </article>
+    </section>
+
+    <!-- Camera Client (no log) -->
+    <section class="card">
+      <p class="card-desc">
+        G1에서 송출된 영상을 받아 모델 입력과 미리보기에 전달합니다.
+      </p>
+      <article class="service" data-label="image_client">
+        <header>
+          <span class="badge">2</span>
+          <h3>Camera Client <code class="muted">tv env · mjpeg_streamer</code></h3>
+          <span class="state" data-state="idle">idle</span>
+        </header>
+        <div class="actions">
+          <button class="btn btn-primary" data-action="start">Connect</button>
+          <button class="btn btn-danger" data-action="stop" data-stop-mode="kill">
+            ■ Stop
+          </button>
+        </div>
+        <!-- log intentionally omitted (user request) -->
+      </article>
+    </section>
+
+    <!-- Brainco Hand -->
+    <section class="card">
+      <p class="card-desc">
+        Brainco 그리퍼 서버 실행 — 추론 루프가 손가락/그리퍼 액션을
+        전송하는 채널입니다.
+      </p>
+      <article class="service" data-label="brainco_hand">
+        <header>
+          <span class="badge">3</span>
+          <h3>Brainco Hand <code class="muted">brainco_hand_server</code></h3>
+          <span class="state" data-state="idle">idle</span>
+        </header>
+        <div class="actions">
+          <button class="btn btn-primary" data-action="start">Connect</button>
+          <button class="btn btn-success" data-action="send"
+                  data-payload="./brainco_hand_server">
+            ▶ Run Brainco Hand
+          </button>
+          <button class="btn btn-danger" data-action="stop" data-stop-mode="intr">
+            ■ Stop
+          </button>
+        </div>
+        <pre class="log" data-role="log"></pre>
+      </article>
+    </section>
+
+    <!-- Safety gate: 어깨 관절 잠금 해제 확인 (COL 1 맨 아래) -->
+    <section id="safety-gate" class="safety-gate">
+      <div class="safety-inner">
+        <img src="/static/unitree-g1-controller.webp"
+             alt="Unitree G1 remote controller"
+             class="safety-img">
+        <div class="safety-text">
+          <h3>Unitree G1 어깨 관절 잠금 해제 확인</h3>
+          <p>
+            리모컨으로 <strong>어깨 관절 모터 토크를 해제</strong>한 후 아래
+            버튼을 누르세요. 누르기 전까지 <code>Go to init pose</code> /
+            <code>Run inference</code> 는 비활성화됩니다.
+          </p>
+        </div>
+        <button id="btn-shoulder-confirm" class="btn btn-primary safety-btn">
+          ✓ 어깨 관절 잠금 해제 완료
+        </button>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- COL 2 — 모델 파트 (Model + Mode)                              -->
+  <!-- ============================================================ -->
+  <div class="col col-2">
+
+    <!-- Model -->
+    <section class="card">
+      <header class="card-header">
+        <h2>Model</h2>
+        <p>모델 종류와 체크포인트 경로. DP-VLA는 별도 서버 launch 없이 추론 시 직접 호출됩니다.</p>
+      </header>
+
+      <div class="segmented" id="model-type">
+        <button class="seg active" data-value="gr00t">GR00T</button>
+        <button class="seg" data-value="dp_vla">DP-VLA</button>
+      </div>
+
+      <div class="form-row">
+        <label id="model-path-label">GR00T checkpoint</label>
+        <input id="model-path" type="text">
+        <button id="model-path-browse" class="btn btn-ghost">Browse…</button>
+      </div>
+
+      <article class="service" data-label="gr00t_server" id="gr00t-card">
+        <header>
+          <span class="badge">4</span>
+          <h3>GR00T Server</h3>
+          <span class="state" data-state="idle">idle</span>
+        </header>
+        <div class="actions">
+          <button class="btn btn-success" data-action="start" data-params="model_path">
+            ▶ Launch GR00T
+          </button>
+          <button class="btn btn-danger" data-action="stop" data-stop-mode="kill">
+            ■ Stop (change model)
+          </button>
+        </div>
+        <pre class="log" data-role="log"></pre>
+      </article>
+    </section>
+
+    <!-- Mode -->
+    <section class="card">
+      <header class="card-header">
+        <h2>Mode</h2>
+        <p>
+          Evaluation — lerobot 데이터셋의 정답 episode/instruction 재현.
+          Inference — 임의 init pose + 직접 입력한 instruction으로 자유 실행.
+        </p>
+      </header>
+
+      <div class="segmented" id="mode-type">
+        <button class="seg active" data-value="eval">Evaluation</button>
+        <button class="seg" data-value="infer">Inference</button>
+      </div>
+
+      <div id="eval-panel" class="panel">
+        <div class="form-row">
+          <label>Instruction type</label>
+          <div class="radio-group">
+            <label><input type="radio" name="eval-inst" value="long" checked> Long</label>
+            <label><input type="radio" name="eval-inst" value="short"> Short</label>
+          </div>
+        </div>
+        <div class="form-row">
+          <label>Task</label>
+          <select id="eval-task"></select>
+        </div>
+        <div class="form-row">
+          <label>Episode</label>
+          <select id="eval-episode"></select>
+        </div>
+        <div class="resolved">
+          <div class="resolved-row">
+            <span class="label">robot initial pose index</span>
+            <span class="value" id="eval-init-pose">—</span>
+            <span class="saved-badge"></span>
+          </div>
+          <div class="resolved-instr">
+            <span class="label">instruction</span>
+            <p id="eval-instruction">—</p>
+          </div>
+        </div>
+      </div>
+
+      <div id="infer-panel" class="panel" hidden>
+        <div class="form-row">
+          <label>robot initial pose index</label>
+          <input id="infer-init-pose" type="number" min="0" max="33422" value="3000">
+          <span class="hint">range: 0 – 33422</span>
+        </div>
+        <div class="form-row">
+          <label>Category</label>
+          <select id="infer-category"></select>
+        </div>
+        <div class="form-row">
+          <label>Instruction</label>
+          <select id="infer-instruction"></select>
+        </div>
+        <div class="form-row">
+          <label>Custom</label>
+          <input id="infer-custom" type="text" placeholder="custom instruction...">
+          <button id="infer-send-custom" class="btn btn-primary">Send</button>
+        </div>
+        <div class="resolved">
+          <div class="resolved-row">
+            <span class="label">Active source</span>
+            <span class="value" id="infer-active-source">—</span>
+            <span class="saved-badge"></span>
+          </div>
+          <div class="resolved-instr">
+            <span class="label">Active instruction</span>
+            <p id="infer-active">—</p>
+          </div>
+        </div>
+      </div>
+    </section>
+
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- COL 3 — Camera Client view + Inference                        -->
+  <!-- ============================================================ -->
+  <div class="col col-3">
+
+    <!-- Camera Client view (preview only, no log) -->
+    <section class="card">
+      <header class="card-header">
+        <h2>Camera Client view</h2>
+        <p>G1 머리 카메라 라이브 미리보기 (Camera Client running 시 자동 표시).</p>
+      </header>
+      <div class="preview" id="camera-preview" hidden>
+        <img id="camera-stream" alt="camera preview" referrerpolicy="no-referrer">
+        <span class="preview-overlay">connecting…</span>
+      </div>
+    </section>
+
+    <!-- Inference -->
+    <section class="card inference-card">
+      <header class="card-header">
+        <h2>Inference</h2>
+        <p>① Go to init pose → 콘솔에서 “Press 'Run inference' button” 메시지 확인 → ② Run inference → 종료 시 ③ Finish.</p>
+      </header>
+      <article class="service" data-label="inference">
+        <header>
+          <span class="badge">▶</span>
+          <h3>Inference run</h3>
+          <span class="state" data-state="idle">idle</span>
+        </header>
+        <div class="actions">
+          <button class="btn btn-primary" id="btn-go-init" disabled>▶ Go to init pose</button>
+          <button class="btn btn-success" id="btn-run-inference" disabled>Run inference</button>
+          <button class="btn btn-danger" id="btn-finish">■ Finish</button>
+        </div>
+        <pre class="log" data-role="log"></pre>
+      </article>
+    </section>
+
+  </div>
+
+  <!-- ============================================================ -->
+  <!-- COL 4 — Recording                                             -->
+  <!-- ============================================================ -->
+  <div class="col col-4">
+
+    <!-- Recording -->
+    <section class="card">
+      <header class="card-header">
+        <h2>Recording</h2>
+        <p>Intel RealSense color stream — 라이브 미리보기는 자동 시작. ● Record로 MP4 저장 / ■ Stop으로 종료.</p>
+      </header>
+
+      <article class="service" data-label="recorder">
+        <header>
+          <span class="badge">⏺</span>
+          <h3>Camera Recorder <code class="muted">v4l2 · mp4v</code></h3>
+          <span class="state" data-state="idle">idle</span>
+        </header>
+        <div class="form-row">
+          <label>Output dir</label>
+          <input id="rec-out-dir" type="text" placeholder="~/Videos">
+          <button id="rec-out-browse" class="btn btn-ghost">Browse…</button>
+        </div>
+        <div class="form-row">
+          <label>Filename</label>
+          <input id="rec-filename" type="text" placeholder="g1_YYMMDD_HHMMSS.mp4">
+          <span class="hint">.mp4 자동 추가</span>
+        </div>
+        <div class="actions">
+          <button class="btn btn-success" id="btn-rec-start" disabled>● Record</button>
+          <button class="btn btn-danger" id="btn-rec-stop" disabled>■ Stop recording</button>
+        </div>
+        <div class="preview" id="rec-preview">
+          <img id="rec-stream" alt="recorder preview" referrerpolicy="no-referrer">
+          <span class="preview-overlay">connecting…</span>
+        </div>
+        <div id="rec-status" class="rec-status">idle</div>
+        <!-- log intentionally omitted (user request) -->
+      </article>
+    </section>
+
+    <!-- Video player (below Recording in col-4) -->
+    <section class="card">
+      <header class="card-header">
+        <h2>Video player</h2>
+        <p>로컬 비디오 파일을 불러와 재생 (H.264 mp4 권장).</p>
+      </header>
+      <div class="actions">
+        <button id="video-pick-file" class="btn btn-primary">파일 선택…</button>
+      </div>
+      <input id="video-file-input" type="file" accept="video/*" hidden>
+      <div id="video-error" class="hint" hidden></div>
+      <video id="video-player" controls preload="metadata" class="video-player"></video>
+    </section>
+
+  </div>
+
+</main>
+
+<footer class="bottombar compact">
+  <span id="summary"></span>
+  <button id="shutdown-btn" class="btn btn-danger btn-compact">Shutdown</button>
+</footer>
+
+<!-- ============ Directory picker modal ============ -->
+<div id="fs-modal" class="modal" hidden>
+  <div class="modal-backdrop" data-close></div>
+  <div class="modal-dialog" role="dialog" aria-modal="true">
+    <header class="modal-header">
+      <h3>Choose checkpoint directory</h3>
+      <button class="btn btn-ghost" data-close aria-label="Close">✕</button>
+    </header>
+    <div class="fs-toolbar">
+      <button id="fs-up" class="btn btn-ghost">▲ Up</button>
+      <button id="fs-home" class="btn btn-ghost">⌂ Home</button>
+      <input id="fs-path-input" type="text" placeholder="/absolute/path" spellcheck="false">
+      <button id="fs-go" class="btn btn-ghost">Go</button>
+    </div>
+    <div class="fs-current" id="fs-current-path">—</div>
+    <ul id="fs-list" class="fs-list"></ul>
+    <footer class="modal-actions">
+      <button class="btn btn-ghost" data-close>Cancel</button>
+      <button id="fs-select" class="btn btn-primary">Select this directory</button>
+    </footer>
+  </div>
+</div>
+
+<script src="/static/app.js?v={{V}}"></script>
+</body>
+</html>
