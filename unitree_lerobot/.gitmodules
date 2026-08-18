@@ -1,0 +1,3 @@
+[submodule "unitree_lerobot/lerobot"]
+    path = unitree_lerobot/lerobot
+    url = https://github.com/huggingface/lerobot
