@@ -1,0 +1,210 @@
+{
+  "task1": {
+    "1": {
+      "long": "pick up the apple on the upper right of the table using the right hand, hand the apple over to the left hand, and place the apple in the blue basket at the left using the left hand.",
+      "short": "pick up the apple and place it in the blue basket.",
+      "init_pose_idx": 150
+    },
+    "2": {
+      "long": "pick up the persimmon on the upper center of the table using the left hand, and place the persimmon in the blue basket at the left using the left hand.",
+      "short": "pick up the persimmon and place it in the blue basket.",
+      "init_pose_idx": 1600
+    },
+    "3": {
+      "long": "pick up the peach on the upper right of the table using the right hand, hand the peach over to the left hand, and place the peach in the blue basket at the left using the left hand.",
+      "short": "pick up the peach and place it in the blue basket.",
+      "init_pose_idx": 12300
+    },
+    "4": {
+      "long": "pick up the onion on the upper left of the table using the left hand, hand the onion over to the right hand, and place the onion in the red basket at the right using the right hand.",
+      "short": "pick up the onion and place it in the red basket.",
+      "init_pose_idx": 2800
+    },
+    "5": {
+      "long": "pick up the cucumber on the upper center of the table using the right hand and place the cucumber in the red basket at the right using the right hand.",
+      "short": "pick up the cucumber and place it in the red basket.",
+      "init_pose_idx": 24000
+    },
+    "6": {
+      "long": "pick up the pumkin on the upper center of the table using the right hand and place the pumpkin in the red basket at the right using the right hand.",
+      "short": "pick up the pumpkin and place it in the red basket.",
+      "init_pose_idx": 14500
+    },
+    "7": {
+      "long": "pick up the apple on the upper left of the table using the left hand, and place the apple in the blue basket at the left using the left hand.",
+      "short": "pick up the apple and place it in the blue basket.",
+      "init_pose_idx": 600
+    },
+    "8": {
+      "long": "pick up the peach on the upper center of the table using the left hand, and place the peach in the blue basket at the left using the left hand.",
+      "short": "pick up the peach and place it in the blue basket.",
+      "init_pose_idx": 12450
+    },
+    "9": {
+      "long": "pick up the onion on the upper center of the table using the left hand, hand the onion over to the right hand, and place the onion in the red basket at the right using the right hand.",
+      "short": "pick up the onion and place it in the red basket.",
+      "init_pose_idx": 18500
+    },
+    "10": {
+      "long": "pick up the pumpkin on the lower center of the table using the right hand and place the pumpkin in the red basket at the right using the right hand.",
+      "short": "pick up the pumpkin and place it in the red basket.",
+      "init_pose_idx": 23500
+    }
+  },
+  "task2": {
+    "1": {
+      "long": "pick up the dishcloth on the upper right of the table using the right hand, hand the dishcloth over to the left hand and wipe the induction cooktop at the left using the left hand.",
+      "short": "pick up the dishcloth and wipe the induction stove.",
+      "init_pose_idx": 2900
+    },
+    "2": {
+      "long": "pick up the dishcloth on the upper center of the table using the right hand, hand the dishcloth over to the left hand and wipe the induction cooktop at the left using the left hand.",
+      "short": "pick up the dishcloth and wipe the induction stove.",
+      "init_pose_idx": 3600
+    },
+    "3": {
+      "long": "pick up the dishcloth on the lower right of the table using the right hand, hand the dishcloth over to the left hand and wipe the induction cooktop at the left using the left hand.",
+      "short": "pick up the dishcloth and wipe the induction stove.",
+      "init_pose_idx": 6200
+    },
+    "4": {
+      "long": "pick up the dishcloth on the induction cooktop at the left of the table using the left hand, hand the dishcloth over to the right hand, and wipe the upper right area of the table using the right hand.",
+      "short": "pick up the dishcloth and wipe the table.",
+      "init_pose_idx": 8300
+    },
+    "5": {
+      "long": "pick up the dishcloth on the induction cooktop at the left of the table using the left hand, hand the dishcloth over to the right hand, and wipe the upper center area of the table using the right hand.",
+      "short": "pick up the dishcloth and wipe the table.",
+      "init_pose_idx": 8500
+    },
+    "6": {
+      "long": "pick up the dishcloth on the upper right of the table using the right hand, hand the dishcloth over to the left hand and wipe the induction cooktop at the left using the left hand.",
+      "short": "pick up the dishcloth and wipe the induction stove.",
+      "init_pose_idx": 3200
+    },
+    "7": {
+      "long": "pick up the dishcloth on the upper right of the table using the right hand, hand the dishcloth over to the left hand and wipe the induction cooktop at the left using the left hand.",
+      "short": "pick up the dishcloth and wipe the induction stove.",
+      "init_pose_idx": 3100
+    },
+    "8": {
+      "long": "pick up the dishcloth on the lower right of the table using the right hand, hand the dishcloth over to the left hand and wipe the induction cooktop at the left using the left hand.",
+      "short": "pick up the dishcloth and wipe the induction stove.",
+      "init_pose_idx": 6500
+    },
+    "9": {
+      "long": "pick up the dishcloth on the induction cooktop at the left of the table using the left hand, hand the dishcloth over to the right hand, and wipe the upper right area of the table using the right hand.",
+      "short": "pick up the dishcloth and wipe the table.",
+      "init_pose_idx": 8400
+    },
+    "10": {
+      "long": "pick up the dishcloth on the induction cooktop at the left of the table using the left hand, hand the dishcloth over to the right hand, and wipe the upper center area of the table using the right hand.",
+      "short": "pick up the dishcloth and wipe the table.",
+      "init_pose_idx": 8530
+    }
+  },
+  "task3": {
+    "1": {
+      "long": "pick up the pot on the right of the table using the right hand and place the pot on the induction cooktop at the left using the right hand.",
+      "short": "pick up the pot and place it on the induction stove.",
+      "init_pose_idx": 11200
+    },
+    "2": {
+      "long": "pick up the pot on the right of the table using the right hand and place the pot on the induction cooktop at the left using the right hand.",
+      "short": "pick up the pot and place it on the induction stove.",
+      "init_pose_idx": 13200
+    },
+    "3": {
+      "long": "pick up the pot on the right of the table using the right hand and place the pot on the induction cooktop at the left using the right hand.",
+      "short": "pick up the pot and place it on the induction stove.",
+      "init_pose_idx": 19500
+    },
+    "4": {
+      "long": "pick up the pot on the right of the table using the left hand and place the pot on the induction cooktop at the left using the left hand.",
+      "short": "pick up the pot and place it on the induction stove.",
+      "init_pose_idx": 9000
+    },
+    "5": {
+      "long": "pick up the pot on the right of the table using the left hand and place the pot on the induction cooktop at the left using the left hand.",
+      "short": "pick up the pot and place it on the induction stove.",
+      "init_pose_idx": 19000
+    },
+    "6": {
+      "long": "pick up the pot on the induction cooktop at the left of the table using the left hand and place the pot on the right area of the table using the left hand.",
+      "short": "pick up the pot and place it on the table.",
+      "init_pose_idx": 21000
+    },
+    "7": {
+      "long": "pick up the pot on the induction cooktop at the left of the table using the left hand and place the pot on the right area of the table using the left hand.",
+      "short": "pick up the pot and place it on the table.",
+      "init_pose_idx": 13600
+    },
+    "8": {
+      "long": "pick up the pot on the induction cooktop at the left of the table using the left hand and place the pot on the right area of the table using the left hand.",
+      "short": "pick up the pot and place it on the table.",
+      "init_pose_idx": 11300
+    },
+    "9": {
+      "long": "pick up the pot on the induction cooktop at the left of the table using the right hand and place the pot on the right area of the table using the right hand.",
+      "short": "pick up the pot and place it on the table.",
+      "init_pose_idx": 14000
+    },
+    "10": {
+      "long": "pick up the pot on the induction cooktop at the left of the table using the right hand and place the pot on the right area of the table using the right hand.",
+      "short": "pick up the pot and place it on the table.",
+      "init_pose_idx": 21800
+    }
+  },
+  "task4": {
+    "1": {
+      "long": "pick up the onion on the upper right of the table using the right hand and place the onion in the pot at the right using the right hand.",
+      "short": "pick up the onion and place it in the pot.",
+      "init_pose_idx": 11790
+    },
+    "2": {
+      "long": "pick up the cucumber on the lower right of the table using the right hand and place the cucumber in the pot at the right using the right hand.",
+      "short": "pick up the cucumber and place it in the pot.",
+      "init_pose_idx": 14900
+    },
+    "3": {
+      "long": "pick up the pumpkin on the lower right of the table using the right hand and place the pumpkin in the pot at the right using the right hand.",
+      "short": "pick up the pumpkin and place it in the pot.",
+      "init_pose_idx": 15400
+    },
+    "4": {
+      "long": "pick up the onion on the lower center of the table using the right hand and place the onion in the pot at the right using the right hand.",
+      "short": "pick up the onion and place it in the pot.",
+      "init_pose_idx": 15300
+    },
+    "5": {
+      "long": "pick up the pumpkin on the lower center of the table using the right hand and place the pumpkin in the pot at the right using the right hand.",
+      "short": "pick up the pumpkin and place it in the pot.",
+      "init_pose_idx": 12790
+    },
+    "6": {
+      "long": "with your left hand positioned to the left of the pot, pick up the onion on the lower right of the table using the right hand and place the onion in the pot on the induction cooktop at the left using the right hand.",
+      "short": "pick up the onion and place it in the pot.",
+      "init_pose_idx": 32500
+    },
+    "7": {
+      "long": "with your left hand positioned to the left of the pot, pick up the cucumber on the upper center of the table using the right hand and place the cucumber in the pot on the induction cooktop at the left using the right hand.",
+      "short": "pick up the cucumber and place it in the pot.",
+      "init_pose_idx": 32000
+    },
+    "8": {
+      "long": "with your left hand positioned to the left of the pot, pick up the pumpkin on the upper right of the table using the right hand and place the pumpkin in the pot on the induction cooktop at the left using the right hand.",
+      "short": "pick up the pumpkin and place it in the pot.",
+      "init_pose_idx": 30700
+    },
+    "9": {
+      "long": "with your left hand positioned to the left of the pot, pick up the onion on the lower center of the table using the right hand and place the onion in the pot on the induction cooktop at the left using the right hand.",
+      "short": "pick up the onion and place it in the pot.",
+      "init_pose_idx": 30600
+    },
+    "10": {
+      "long": "with your left hand positioned to the left of the pot, pick up the pumpkin on the upper center of the table using the right hand and place the pumpkin in the pot on the induction cooktop at the left using the right hand.",
+      "short": "pick up the pumpkin and place it in the pot.",
+      "init_pose_idx": 30800
+    }
+  }
+}
