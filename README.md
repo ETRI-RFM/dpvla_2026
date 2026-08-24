@@ -4,24 +4,6 @@ DPVLA(Dual-Process VLA) 연구·배포 코드 모음 — 학습(starVLA)·실로
 
 ## 구성
 
-### `starvla_2026/` — starVLA 작업본 (DPVLA 학습)
-공식 [starVLA](https://github.com/starVLA/starVLA) 스냅샷(`starVLA_dev @ 0ed0aad2`) 위에
-DPVLA-DPFM(×QFormer_V1) 학습 코드를 적용한 트리.
-
-| 경로 | 역할 |
-|---|---|
-| `starVLA/model/framework/VLM4A/DPVLA_QFormer_V1.py` | DPVLA 프레임워크 본체 (System-2 latent → readout 토큰 방식) |
-| `starVLA/model/framework/VLM4A/DPVLA.py` | 부모 클래스 (QFormer_V1이 상속) |
-| `starVLA/model/modules/action_model/DPFM_ActionHeader.py` | DPFM 액션헤드 — Flow-Matching DiT (`head_type: dit`) |
-| `starVLA/model/modules/action_model/typed_latent_qformer.py` | latent Q-Former 모듈 (프레임워크가 import) |
-| `starVLA/model/modules/dino_model/dinov3_encoder.py` | System-1 비전 (DINOv3-ViT-B/16) |
-| `starVLA/model/modules/vlm/QWen3_5.py` | System-2 (Qwen3.5) 인터페이스 — readout 토큰 `<\|dpvla_ro_i\|>` 등록·부착 |
-| `starVLA/training/train_starvla.py` + `starVLA/dataloader/*` | 학습 루프·데이터로더 (sys1_hz/sys2_hz 샘플링) |
-
-> ⚠️ 미적용분: 유효배치 512용 deepspeed accum 설정(`deepspeed_zero2_qfv1_8gpu_accum4.yaml` 쌍),
-> 챔피언 학습 yaml(`starvla_dpvla_qfv1p8_4b_fm_ro_robotpretrain_*.yaml`), 런처 스크립트.
-> 전체 원본·문서·개발일지는 `shinjaeho980610/starvla_dpvla_2026` 참조.
-
 ### `unitree_lerobot/` — Unitree G1 추론용 lerobot 스택
 공식 [unitree_lerobot](https://github.com/unitreerobotics/unitree_lerobot) 스냅샷(`main @ 41c28057`).
 
