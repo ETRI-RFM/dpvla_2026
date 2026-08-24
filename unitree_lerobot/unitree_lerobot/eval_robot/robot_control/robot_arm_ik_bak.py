@@ -25,11 +25,11 @@ class G1_29_ArmIK:
 
         if not self.Unit_Test:
             self.robot = pin.RobotWrapper.BuildFromURDF(
-                "/home/goodman/unitree_IL_lerobot/unitree_lerobot/eval_robot/assets/g1/g1_body29_hand14.urdf", "/home/goodman/unitree_IL_lerobot/unitree_lerobot/eval_robot/assets/g1/"
+                "unitree_lerobot/eval_robot/assets/g1/g1_body29_hand14.urdf", "unitree_lerobot/eval_robot/assets/g1/"
             )
         else:
             self.robot = pin.RobotWrapper.BuildFromURDF(
-                "/home/goodman/unitree_IL_lerobot/unitree_lerobot/eval_robot/assets/g1/g1_body29_hand14.urdf", "/home/goodman/unitree_IL_lerobot/unitree_lerobot/eval_robot/assets/g1/"
+                "unitree_lerobot/eval_robot/assets/g1/g1_body29_hand14.urdf", "unitree_lerobot/eval_robot/assets/g1/"
             )  # for test
 
         self.mixed_jointsToLockIDs = [
@@ -86,10 +86,6 @@ class G1_29_ArmIK:
                 pin.FrameType.OP_FRAME,
             )
         )
-
-        ################## mod ##################
-        self.reduced_robot.data = self.reduced_robot.model.createData()
-        ################## mod ##################
 
         # for i in range(self.reduced_robot.model.nframes):
         #     frame = self.reduced_robot.model.frames[i]
@@ -223,7 +219,7 @@ class G1_29_ArmIK:
         self.opti.set_value(self.var_q_last, self.init_data)  # for smooth
 
         try:
-            sol = self.opti.solve()
+            self.opti.solve()
             # sol = self.opti.solve_limited()
 
             sol_q = self.opti.value(self.var_q)
@@ -272,50 +268,6 @@ class G1_29_ArmIK:
 
             # return sol_q, sol_tauff
             return current_lr_arm_motor_q, np.zeros(self.reduced_robot.model.nv)
-    
-    ################## mod ##################   
-    def get_current_dual_arm_pose(self, q):
-        pin.forwardKinematics(self.reduced_robot.model, self.reduced_robot.data, q)
-        pin.framesForwardKinematics(self.reduced_robot.model, self.reduced_robot.data, q)  # 이 줄 추가!
-
-        T_left_mat = self.reduced_robot.data.oMf[self.L_hand_id]   # pin.SE3
-        T_right_mat = self.reduced_robot.data.oMf[self.R_hand_id]
-
-        pose_left = self.se3_to_xyzrpy(T_left_mat)
-        pose_right = self.se3_to_xyzrpy(T_right_mat)
-
-        return(pose_left, pose_right)
-    
-    def se3_to_xyzrpy(self, T: pin.SE3):
-        translation = T.translation
-        rotation = T.rotation
-        rpy = R.from_matrix(rotation).as_euler('xyz', degrees=False)  # roll-pitch-yaw
-
-        rpy = (rpy + np.pi) % (2 * np.pi) - np.pi
-        
-        return list(translation.tolist() + rpy.tolist())
-
-    def get_tauff(self, q):
-        v = (q - self.init_data) * 0.0
-        tauff = pin.rnea(self.reduced_robot.model, self.reduced_robot.data, q, v, np.zeros(self.reduced_robot.model.nv))
-
-        return tauff
-    
-    def estimate_ee_force(self, q, tau):
-        # Forward Kinematics
-        pin.forwardKinematics(self.reduced_robot.model, self.reduced_robot.data, q)
-        pin.framesForwardKinematics(self.reduced_robot.model, self.reduced_robot.data, q)
-        
-        # Jacobian 계산
-        J_L = pin.computeFrameJacobian(self.reduced_robot.model, self.reduced_robot.data, q, self.L_hand_id, pin.ReferenceFrame.LOCAL)
-        J_R = pin.computeFrameJacobian(self.reduced_robot.model, self.reduced_robot.data, q, self.R_hand_id, pin.ReferenceFrame.LOCAL)
-
-        # ee force/torque 추정
-        ee_force_l = np.linalg.pinv(J_L[:, :7].T) @ tau[:7]
-        ee_force_r = np.linalg.pinv(J_R[:, 7:].T) @ tau[7:]
-
-        return ee_force_l, ee_force_r
-    ################## mod ##################
 
     def solve_tau(self, current_lr_arm_motor_q=None, current_lr_arm_motor_dq=None):
         try:
@@ -521,7 +473,7 @@ class G1_23_ArmIK:
         self.opti.set_value(self.var_q_last, self.init_data)  # for smooth
 
         try:
-            sol = self.opti.solve()
+            self.opti.solve()
             # sol = self.opti.solve_limited()
 
             sol_q = self.opti.value(self.var_q)
@@ -796,7 +748,7 @@ class H1_2_ArmIK:
         self.opti.set_value(self.var_q_last, self.init_data)  # for smooth
 
         try:
-            sol = self.opti.solve()
+            self.opti.solve()
             # sol = self.opti.solve_limited()
 
             sol_q = self.opti.value(self.var_q)
@@ -1068,7 +1020,7 @@ class H1_ArmIK:
         self.opti.set_value(self.var_q_last, self.init_data)  # for smooth
 
         try:
-            sol = self.opti.solve()
+            self.opti.solve()
             # sol = self.opti.solve_limited()
 
             sol_q = self.opti.value(self.var_q)
@@ -1125,7 +1077,7 @@ if __name__ == "__main__":
     # arm_ik = G1_23_ArmIK(Unit_Test = True, Visualization = True)
     # arm_ik = H1_ArmIK(Unit_Test = True, Visualization = True)
 
-    # initial positon
+    # initial position
     L_tf_target = pin.SE3(
         pin.Quaternion(1, 0, 0, 0),
         np.array([0.25, +0.25, 0.1]),

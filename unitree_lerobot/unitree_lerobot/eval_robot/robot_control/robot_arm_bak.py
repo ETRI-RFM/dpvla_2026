@@ -12,10 +12,6 @@ from unitree_sdk2py.idl.unitree_go.msg.dds_ import LowCmd_ as go_LowCmd, LowStat
 from unitree_sdk2py.idl.default import unitree_go_msg_dds__LowCmd_
 
 import logging_mp
-import pinocchio as pin
-import numpy as np
-from unitree_lerobot.eval_robot.robot_control.robot_arm_ik import G1_29_ArmIK
-
 
 logger_mp = logging_mp.get_logger(__name__)
 
@@ -73,8 +69,6 @@ class G1_29_ArmController:
     def __init__(self, motion_mode=False, simulation_mode=False):
         logger_mp.info("Initialize G1_29_ArmController...")
         self.q_target = np.zeros(14)
-        self.q_target[3]    = 1.57  # left elbow initial bend
-        self.q_target[7+3]  = 1.57  # right elbow  initial bend 
         self.tauff_target = np.zeros(14)
         self.motion_mode = motion_mode
         self.simulation_mode = simulation_mode
@@ -129,7 +123,7 @@ class G1_29_ArmController:
         logger_mp.info(f"Current two arms motor state q:\n{self.get_current_dual_arm_q()}\n")
         logger_mp.info("Lock all joints except two arms...\n")
 
-        arm_indices = set(member.value for member in G1_29_JointArmIndex)
+        arm_indices = {member.value for member in G1_29_JointArmIndex}
         for id in G1_29_JointIndex:
             self.msg.motor_cmd[id].mode = 1
             if id.value in arm_indices:
@@ -165,7 +159,6 @@ class G1_29_ArmController:
                 for id in range(G1_29_Num_Motors):
                     lowstate.motor_state[id].q = msg.motor_state[id].q
                     lowstate.motor_state[id].dq = msg.motor_state[id].dq
-                    lowstate.motor_state[id].tau_est = msg.motor_state[id].tau_est
                 self.lowstate_buffer.SetData(lowstate)
             time.sleep(0.002)
 
@@ -173,8 +166,8 @@ class G1_29_ArmController:
         current_q = self.get_current_dual_arm_q()
         delta = target_q - current_q
         motion_scale = np.max(np.abs(delta)) / (velocity_limit * self.control_dt)
-        cliped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
-        return cliped_arm_q_target
+        clipped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
+        return clipped_arm_q_target
 
     def _ctrl_motor_state(self):
         if self.motion_mode:
@@ -188,12 +181,12 @@ class G1_29_ArmController:
                 arm_tauff_target = self.tauff_target
 
             if self.simulation_mode:
-                cliped_arm_q_target = arm_q_target
+                clipped_arm_q_target = arm_q_target
             else:
-                cliped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
+                clipped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
 
             for idx, id in enumerate(G1_29_JointArmIndex):
-                self.msg.motor_cmd[id].q = cliped_arm_q_target[idx]
+                self.msg.motor_cmd[id].q = clipped_arm_q_target[idx]
                 self.msg.motor_cmd[id].dq = 0
                 self.msg.motor_cmd[id].tau = arm_tauff_target[idx]
 
@@ -232,15 +225,6 @@ class G1_29_ArmController:
     def get_current_dual_arm_dq(self):
         """Return current state dq of the left and right arm motors."""
         return np.array([self.lowstate_buffer.GetData().motor_state[id].dq for id in G1_29_JointArmIndex])
-    
-    def get_current_dual_arm_tau_est(self):
-        '''Return current state dq of the left and right arm motors.'''
-        return np.array([self.lowstate_buffer.GetData().motor_state[id].tau_est for id in G1_29_JointArmIndex])
-    
-    def get_current_dual_arm_ee_force_est(self, arm_ik, q, tau_est):
-        ee_force_l, ee_force_r = arm_ik.estimate_ee_force(q, tau_est)
-
-        return ee_force_l, ee_force_r
 
     def ctrl_dual_arm_go_home(self):
         """Move both the left and right arms of the robot to their home position by setting the target joint angles (q) and torques (tau) to zero."""
@@ -249,8 +233,6 @@ class G1_29_ArmController:
         current_attempts = 0
         with self.ctrl_lock:
             self.q_target = np.zeros(14)
-            self.q_target[3]    = 1.57  # left elbow initial bend
-            self.q_target[7+3]  = 1.57  # right elbow  initial bend
             # self.tauff_target = np.zeros(14)
         tolerance = 0.05  # Tolerance threshold for joint angles to determine "close to zero", can be adjusted based on your motor's precision requirements
         while current_attempts < max_attempts:
@@ -302,232 +284,6 @@ class G1_29_ArmController:
             G1_29_JointIndex.kRightWristYaw.value,
         ]
         return motor_index.value in wrist_motors
-    
-    q_target = np.array([
-            # 왼팔 7개 관절
-            0.0, 1.57, 0.0, 1.57, 0.0, 0.0, 0.0,
-            # 오른팔 7개 관절  
-            0.0, -1.57, 0.0, 1.57, 0.0, 0.0, 0.0
-            ])
-    
-    def move_dual_arm_to_q_with_gravity(
-        self,
-        arm_ik,
-        q_target,
-        t_move: float = 1.5,
-        hz: float = 250.0,
-        use_current_dq: bool = True,
-    ):
-        """
-        지정한 목표 관절각(q_target)까지 t_move 동안 선형 보간으로 부드럽게 이동.
-        매 스텝마다 Pinocchio rnea()를 이용해 중력보상(및 Coriolis/원심항) 토크를 계산해 함께 보냄.
-        """
-        q_target = np.asarray(q_target).reshape(-1)
-        nv = arm_ik.reduced_robot.model.nv
-
-        assert q_target.shape[0] == nv, f"q_target 길이 {q_target.shape[0]} != 모델 nv {nv}"
-
-        # 시작 상태
-        q_now = self.get_current_dual_arm_q()
-        steps = max(1, int(t_move * hz))
-        dt = 1.0 / hz
-        last_q = q_now.copy()
-
-        for k in range(1, steps + 1):
-            s = k / steps
-            q_cmd = (1.0 - s) * q_now + s * q_target
-
-            if use_current_dq:
-                dq_cmd = self.get_current_dual_arm_dq()
-            else:
-                dq_cmd = (q_cmd - last_q) / dt  # 수치미분 근사
-
-            tauff = pin.rnea(
-                arm_ik.reduced_robot.model,
-                arm_ik.reduced_robot.data,
-                q_cmd,
-                dq_cmd,
-                np.zeros(nv),
-            )
-
-            self.ctrl_dual_arm(q_cmd, tauff)
-
-            last_q = q_cmd
-            time.sleep(dt)
-
-    def move_lower_body_to_standing(self, t_move: float = 3.0, hz: float = 250.0):
-        """
-        하체를 서 있는 기본 자세로 t_move 시간 동안 부드럽게 이동시킨다.
-        팔 관절은 건드리지 않고, 하체 joint만 업데이트한다.
-        """
-        import time
-        import numpy as np
-
-        # 하체 target posture (라디안)
-        q_stand = {
-            G1_29_JointIndex.kLeftHipPitch:   -0.2,
-            G1_29_JointIndex.kLeftHipRoll:     0.0,
-            G1_29_JointIndex.kLeftHipYaw:      0.0,
-            G1_29_JointIndex.kLeftKnee:        0.4,
-            G1_29_JointIndex.kLeftAnklePitch: -0.2,
-            G1_29_JointIndex.kLeftAnkleRoll:   0.0,
-
-            G1_29_JointIndex.kRightHipPitch:  -0.2,
-            G1_29_JointIndex.kRightHipRoll:    0.0,
-            G1_29_JointIndex.kRightHipYaw:     0.0,
-            G1_29_JointIndex.kRightKnee:       0.4,
-            G1_29_JointIndex.kRightAnklePitch:-0.2,
-            G1_29_JointIndex.kRightAnkleRoll:  0.0,
-
-            G1_29_JointIndex.kWaistYaw:        0.0,
-            G1_29_JointIndex.kWaistRoll:       0.0,
-            G1_29_JointIndex.kWaistPitch:      0.0,
-        }
-
-        # 현재 q → target q 보간
-        q_now = self.get_current_motor_q()
-        q_target = q_now.copy()
-        for jid, q_val in q_stand.items():
-            q_target[jid] = q_val
-
-        steps = max(1, int(t_move * hz))
-        dt = 1.0 / hz
-
-        for k in range(1, steps + 1):
-            s = k / steps
-            q_cmd = (1.0 - s) * q_now + s * q_target
-
-            with self.ctrl_lock:
-                # 오직 하체 joint만 업데이트!
-                for jid in q_stand.keys():
-                    self.msg.motor_cmd[jid].mode = 1
-                    self.msg.motor_cmd[jid].kp   = self.kp_high
-                    self.msg.motor_cmd[jid].kd   = self.kd_high
-                    self.msg.motor_cmd[jid].q    = q_cmd[jid]
-                    self.msg.motor_cmd[jid].dq   = 0.0
-                    self.msg.motor_cmd[jid].tau  = 0.0
-
-            time.sleep(dt)
-
-        logger_mp.info("[G1_29_ArmController] Lower body standing motion completed.")
-
-    def set_waist_zero_position(self, t_move: float = 3.0, hz: float = 250.0):
-        """
-        하체를 서 있는 기본 자세로 t_move 시간 동안 부드럽게 이동시킨다.
-        팔 관절은 건드리지 않고, 하체 joint만 업데이트한다.
-        """
-        import time
-        import numpy as np
-
-        # 하체 target posture (라디안)
-        q_stand = {
-            G1_29_JointIndex.kWaistYaw:        0.0,
-            G1_29_JointIndex.kWaistRoll:       0.0,
-            G1_29_JointIndex.kWaistPitch:      0.0,
-        }
-
-        # 현재 q → target q 보간
-        q_now = self.get_current_motor_q()
-        q_target = q_now.copy()
-        for jid, q_val in q_stand.items():
-            q_target[jid] = q_val
-
-        steps = max(1, int(t_move * hz))
-        dt = 1.0 / hz
-
-        for k in range(1, steps + 1):
-            s = k / steps
-            q_cmd = (1.0 - s) * q_now + s * q_target
-
-            with self.ctrl_lock:
-                # 오직 하체 joint만 업데이트!
-                for jid in q_stand.keys():
-                    self.msg.motor_cmd[jid].mode = 1
-                    self.msg.motor_cmd[jid].kp   = self.kp_high
-                    self.msg.motor_cmd[jid].kd   = self.kd_high
-                    self.msg.motor_cmd[jid].q    = q_cmd[jid]
-                    self.msg.motor_cmd[jid].dq   = 0.0
-                    self.msg.motor_cmd[jid].tau  = 0.0
-
-            time.sleep(dt)
-
-        logger_mp.info("[G1_29_ArmController] Lower body standing motion completed.")
-
-    def go_initial_pose(self, arm_ik):
-#        q_target = np.array([
-#            # 왼팔 7개 관절
-#            0.0, 1.57, 0.0, 1.57, 0.0, 0.0, 0.0,
-#            # 오른팔 7개 관절  
-#            0.0, -1.57, 0.0, 1.57, 0.0, 0.0, 0.0 ])
-        # 하체 서기 자세로 초기화
-        # self.move_lower_body_to_standing(t_move=2.0)
-        self.set_waist_zero_position(t_move = 2.0)
-        # 차렷 자세 -> 양팔 옆으로 내린 자세
-        self.ctrl_dual_arm_go_home()
-        # 양팔 90도 좌우로 벌린 자세
-        q1 = np.zeros(14)
-        q1[1]  += 1.57 ; q1[7+1] += -1.57 ; q1[3]  += 1.57 ; q1[7+3] += 1.57
-        self.move_dual_arm_to_q_with_gravity(arm_ik, q1, t_move=1.5)
-        
-        q1 = self.get_current_dual_arm_q()
-        q1[3]  += -1.65 ; q1[7+3] += -1.65
-        #팔꿈치 90도 굽힌 자세
-        self.move_dual_arm_to_q_with_gravity(arm_ik, q1, t_move=1.5)
-        
-        q1 = np.zeros(14)
-        q1[3]  -= 0.3 ; q1[7+3] -= 0.3
-        #정면에서 바라보는 팔꿈치 굽힌 자세 : 기본 자세
-        self.move_dual_arm_to_q_with_gravity(arm_ik, q1, t_move=1.5)
-
-    def go_initial_pose_2(self, arm_ik):
-
-        q1 = self.get_current_dual_arm_q()
-        q1[0] = -0.349066; q1[1] = 0.698132; q1[2] = 0.087266; q1[3] = 0.436332; q1[4] = 0.296706; q1[5] = -1.221730; q1[6] = -0.087266
-        q1[7] = -0.349066; q1[8] = -0.698132; q1[9] = 0.087266; q1[10] = 0.436332; q1[11] = -0.523599; q1[12] = -1.047198; q1[13] = -0.087266
-        #어깨 90도 좌우로 벌린 자세
-        self.move_dual_arm_to_q_with_gravity(arm_ik, q1, t_move=1.5)
-    
-    def go_initial_pose_3(self, arm_ik):
-        q1 = np.zeros(14)
-
-        q1[0]  = -0.40
-        q1[1]  = 0.90
-        q1[2]  = 0.0
-        q1[3]  = 0.20
-        q1[4]  = 0.0
-        q1[5]  = 0.0
-        q1[6]  = 0.0
-
-        q1[7]  = -0.40
-        q1[8]  = -0.90
-        q1[9]  = 0.0
-        q1[10] = 0.20
-        q1[11] = 0.0
-        q1[12] = 0.0
-        q1[13] = 0.0
-
-        self.move_dual_arm_to_q_with_gravity(arm_ik, q1, t_move=3)
-    
-    def go_ready_pose(self, arm_ik):
-        q1 = np.zeros(14)
-        q1[3]  -= 0.3 ; q1[7+3] -= 0.3
-        self.move_dual_arm_to_q_with_gravity(arm_ik, q1, t_move=1.5)
-        
-    def go_exit_pose(self, arm_ik):
-
-        self.set_waist_zero_position(t_move = 2.0)
-
-        q1 = self.get_current_dual_arm_q()
-        q1[0] = 0.0; q1[1] = 1.57; q1[2] = 0.0; q1[3] = 0.0; q1[4] = 0.0; q1[5] = 0.0; q1[6] = 0.0; q1[7+0] = 0.0; q1[7+1] = -1.57; q1[7+2] = 0.0; q1[7+3] = 0.0; q1[7+4] = 0.0; q1[7+5] = 0.0; q1[7+6] = 0.0
-        # q1 = [0.0, 1.57, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 1.57, 0.0, 0.0, 0.0, 0.0, 0.0]
-        #어깨 90도 좌우로 벌린 자세
-        self.move_dual_arm_to_q_with_gravity(arm_ik, q1, t_move=1.5)
-        # 팔꿈치 90도 좌우로 벌린 자세
-        q1[3]  = 1.57 ; q1[7+3] = 1.57
-        self.move_dual_arm_to_q_with_gravity(arm_ik, q1, t_move=1.5)
-        q1[1]  = 0.17 ; q1[7+1] = -0.17
-        #양팔 옆으로 내린 자세
-        self.move_dual_arm_to_q_with_gravity(arm_ik, q1, t_move=1.5)
 
 
 class G1_29_JointArmIndex(IntEnum):
@@ -658,7 +414,7 @@ class G1_23_ArmController:
         logger_mp.info(f"Current two arms motor state q:\n{self.get_current_dual_arm_q()}\n")
         logger_mp.info("Lock all joints except two arms...\n")
 
-        arm_indices = set(member.value for member in G1_23_JointArmIndex)
+        arm_indices = {member.value for member in G1_23_JointArmIndex}
         for id in G1_23_JointIndex:
             self.msg.motor_cmd[id].mode = 1
             if id.value in arm_indices:
@@ -701,8 +457,8 @@ class G1_23_ArmController:
         current_q = self.get_current_dual_arm_q()
         delta = target_q - current_q
         motion_scale = np.max(np.abs(delta)) / (velocity_limit * self.control_dt)
-        cliped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
-        return cliped_arm_q_target
+        clipped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
+        return clipped_arm_q_target
 
     def _ctrl_motor_state(self):
         if self.motion_mode:
@@ -716,12 +472,12 @@ class G1_23_ArmController:
                 arm_tauff_target = self.tauff_target
 
             if self.simulation_mode:
-                cliped_arm_q_target = arm_q_target
+                clipped_arm_q_target = arm_q_target
             else:
-                cliped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
+                clipped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
 
             for idx, id in enumerate(G1_23_JointArmIndex):
-                self.msg.motor_cmd[id].q = cliped_arm_q_target[idx]
+                self.msg.motor_cmd[id].q = clipped_arm_q_target[idx]
                 self.msg.motor_cmd[id].dq = 0
                 self.msg.motor_cmd[id].tau = arm_tauff_target[idx]
 
@@ -761,50 +517,26 @@ class G1_23_ArmController:
         """Return current state dq of the left and right arm motors."""
         return np.array([self.lowstate_buffer.GetData().motor_state[id].dq for id in G1_23_JointArmIndex])
 
-    # def ctrl_dual_arm_go_home(self):
-    #     """Move both the left and right arms of the robot to their home position by setting the target joint angles (q) and torques (tau) to zero."""
-    #     logger_mp.info("[G1_23_ArmController] ctrl_dual_arm_go_home start...")
-    #     max_attempts = 100
-    #     current_attempts = 0
-    #     with self.ctrl_lock:
-    #         self.q_target = np.zeros(10)
-    #         # self.tauff_target = np.zeros(10)
-    #     tolerance = 0.05  # Tolerance threshold for joint angles to determine "close to zero", can be adjusted based on your motor's precision requirements
-    #     while current_attempts < max_attempts:
-    #         current_q = self.get_current_dual_arm_q()
-    #         if np.all(np.abs(current_q) < tolerance):
-    #             if self.motion_mode:
-    #                 for weight in np.linspace(1, 0, num=101):
-    #                     self.msg.motor_cmd[G1_23_JointIndex.kNotUsedJoint0].q = weight
-    #                     time.sleep(0.02)
-    #             logger_mp.info("[G1_23_ArmController] both arms have reached the home position.")
-    #             break
-    #         current_attempts += 1
-    #         time.sleep(0.05)
-    
-    ### sjh
     def ctrl_dual_arm_go_home(self):
-        logger_mp.info("[G1_29_ArmController] ctrl_dual_arm_go_home start...")
-        max_attempts = 200
+        """Move both the left and right arms of the robot to their home position by setting the target joint angles (q) and torques (tau) to zero."""
+        logger_mp.info("[G1_23_ArmController] ctrl_dual_arm_go_home start...")
+        max_attempts = 100
         current_attempts = 0
-
-        target_q = np.zeros(14)
-        target_q[3] = 1.57
-        target_q[10] = 1.57
-
         with self.ctrl_lock:
-            self.q_target = target_q.copy()
-
-        tolerance = 0.08
-
+            self.q_target = np.zeros(10)
+            # self.tauff_target = np.zeros(10)
+        tolerance = 0.05  # Tolerance threshold for joint angles to determine "close to zero", can be adjusted based on your motor's precision requirements
         while current_attempts < max_attempts:
             current_q = self.get_current_dual_arm_q()
-            if np.all(np.abs(current_q - target_q) < tolerance):
-                logger_mp.info("[G1_29_ArmController] both arms have reached the home position.")
+            if np.all(np.abs(current_q) < tolerance):
+                if self.motion_mode:
+                    for weight in np.linspace(1, 0, num=101):
+                        self.msg.motor_cmd[G1_23_JointIndex.kNotUsedJoint0].q = weight
+                        time.sleep(0.02)
+                logger_mp.info("[G1_23_ArmController] both arms have reached the home position.")
                 break
             current_attempts += 1
             time.sleep(0.05)
-    ### sjh
 
     def speed_gradual_max(self, t=5.0):
         """Parameter t is the total time required for arms velocity to gradually increase to its maximum value, in seconds. The default is 5.0."""
@@ -960,7 +692,7 @@ class H1_2_ArmController:
         logger_mp.info(f"Current two arms motor state q:\n{self.get_current_dual_arm_q()}\n")
         logger_mp.info("Lock all joints except two arms...\n")
 
-        arm_indices = set(member.value for member in H1_2_JointArmIndex)
+        arm_indices = {member.value for member in H1_2_JointArmIndex}
         for id in H1_2_JointIndex:
             self.msg.motor_cmd[id].mode = 1
             if id.value in arm_indices:
@@ -1003,8 +735,8 @@ class H1_2_ArmController:
         current_q = self.get_current_dual_arm_q()
         delta = target_q - current_q
         motion_scale = np.max(np.abs(delta)) / (velocity_limit * self.control_dt)
-        cliped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
-        return cliped_arm_q_target
+        clipped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
+        return clipped_arm_q_target
 
     def _ctrl_motor_state(self):
         while True:
@@ -1015,12 +747,12 @@ class H1_2_ArmController:
                 arm_tauff_target = self.tauff_target
 
             if self.simulation_mode:
-                cliped_arm_q_target = arm_q_target
+                clipped_arm_q_target = arm_q_target
             else:
-                cliped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
+                clipped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
 
             for idx, id in enumerate(H1_2_JointArmIndex):
-                self.msg.motor_cmd[id].q = cliped_arm_q_target[idx]
+                self.msg.motor_cmd[id].q = clipped_arm_q_target[idx]
                 self.msg.motor_cmd[id].dq = 0
                 self.msg.motor_cmd[id].tau = arm_tauff_target[idx]
 
@@ -1273,8 +1005,8 @@ class H1_ArmController:
         current_q = self.get_current_dual_arm_q()
         delta = target_q - current_q
         motion_scale = np.max(np.abs(delta)) / (velocity_limit * self.control_dt)
-        cliped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
-        return cliped_arm_q_target
+        clipped_arm_q_target = current_q + delta / max(motion_scale, 1.0)
+        return clipped_arm_q_target
 
     def _ctrl_motor_state(self):
         while True:
@@ -1285,12 +1017,12 @@ class H1_ArmController:
                 arm_tauff_target = self.tauff_target
 
             if self.simulation_mode:
-                cliped_arm_q_target = arm_q_target
+                clipped_arm_q_target = arm_q_target
             else:
-                cliped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
+                clipped_arm_q_target = self.clip_arm_q_target(arm_q_target, velocity_limit=self.arm_velocity_limit)
 
             for idx, id in enumerate(H1_JointArmIndex):
-                self.msg.motor_cmd[id].q = cliped_arm_q_target[idx]
+                self.msg.motor_cmd[id].q = clipped_arm_q_target[idx]
                 self.msg.motor_cmd[id].dq = 0
                 self.msg.motor_cmd[id].tau = arm_tauff_target[idx]
 
@@ -1412,7 +1144,7 @@ class H1_JointIndex(IntEnum):
 
 
 if __name__ == "__main__":
-    from unitree_lerobot.eval_robot.robot_control.robot_arm_ik import G1_29_ArmIK
+    from robot_arm_ik import G1_29_ArmIK
     import pinocchio as pin
 
     arm_ik = G1_29_ArmIK(Unit_Test=True, Visualization=False)
@@ -1424,7 +1156,7 @@ if __name__ == "__main__":
     # arm_ik = H1_ArmIK(Unit_Test = True, Visualization = True)
     # arm = H1_ArmController()
 
-    # initial positon
+    # initial position
     L_tf_target = pin.SE3(
         pin.Quaternion(1, 0, 0, 0),
         np.array([0.25, +0.25, 0.1]),

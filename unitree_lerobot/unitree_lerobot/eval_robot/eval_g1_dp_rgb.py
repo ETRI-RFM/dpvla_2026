@@ -1,11 +1,23 @@
-"""'
-Refer to:   lerobot/lerobot/scripts/eval.py
-            lerobot/lerobot/scripts/econtrol_robot.py
-            lerobot/robot_devices/control_utils.py
+"""eval_g1_dp.py + BGR -> RGB fix on the image observations.
+
+Why this file exists
+--------------------
+image_client.py decodes JPEGs with cv2.imdecode, which returns BGR
+(OpenCV convention). The trained policy, however, was fed RGB during
+training because convert_unitree_json_to_lerobot.py explicitly runs
+`cv2.cvtColor(image, cv2.COLOR_BGR2RGB)` (see line 178 of that script)
+before writing frames into the LeRobot dataset. lerobot's training
+data loader reads videos with torchcodec, which also returns RGB.
+
+So the training pipeline is RGB end-to-end, but inference via
+image_client delivers BGR. This file adds a single channel swap on
+the four image observations right after they are produced, so the
+ordering finally seen by the policy matches what it saw during
+training.
+
+The rest of the script is identical to eval_g1_dp.py.
 """
-
 import traceback
-
 
 import time
 import torch
@@ -36,12 +48,13 @@ from unitree_lerobot.eval_robot.make_robot import (
     setup_robot_interface,
     process_images_and_observations,
 )
-from unitree_lerobot.eval_robot.utils.utils import (
+from unitree_lerobot.eval_robot.utils.utils_g1 import (
     cleanup_resources,
-    predict_action,
+    # predict_action,
     to_list,
     to_scalar,
     EvalRealConfig,
+    DualProcess_VLA,
 )
 from unitree_lerobot.eval_robot.utils.rerun_visualizer import RerunLogger, visualization_data
 
@@ -51,25 +64,34 @@ logging_mp.basic_config(level=logging_mp.INFO)
 logger_mp = logging_mp.get_logger(__name__)
 
 
+def _bgr_to_rgb_inplace(observation: dict) -> None:
+    """Swap channel order BGR -> RGB on every image observation tensor.
+
+    process_images_and_observations() wraps the cv2.imdecode output
+    (BGR uint8, shape (H, W, 3)) directly into a torch tensor without
+    color conversion. The policy expects RGB, so we swap channels here.
+    Operates in-place on the dict.
+    """
+    for k in list(observation.keys()):
+        if "images" not in k:
+            continue
+        v = observation[k]
+        if v is None:
+            continue
+        if isinstance(v, torch.Tensor):
+            observation[k] = v[..., [2, 1, 0]].contiguous()
+        else:  # numpy fallback
+            observation[k] = np.ascontiguousarray(np.asarray(v)[..., ::-1])
+
+
 def eval_policy(
     cfg: EvalRealConfig,
     dataset: LeRobotDataset,
-    policy: PreTrainedPolicy | None = None,
-    preprocessor: PolicyProcessorPipeline[dict[str, Any], dict[str, Any]] | None = None,
-    postprocessor: PolicyProcessorPipeline[PolicyAction, PolicyAction] | None = None,
 ):
-    assert isinstance(policy, nn.Module), "Policy must be a PyTorch nn module."
-
     logger_mp.info(f"Arguments: {cfg}")
 
     if cfg.visualization:
         rerun_logger = RerunLogger()
-
-    # Reset policy and processor if they are provided
-    if policy is not None and preprocessor is not None and postprocessor is not None:
-        policy.reset()
-        preprocessor.reset()
-        postprocessor.reset()
 
     image_info = None
     try:
@@ -94,32 +116,37 @@ def eval_policy(
         )
 
         # Get initial pose from the first step of the dataset
-        from_idx = dataset.meta.episodes["dataset_from_index"][0]
+        from_idx = dataset.meta.episodes["dataset_from_index"][1]
         step = dataset[from_idx]
         init_arm_pose = step["observation.state"][:arm_dof].cpu().numpy()
-        
-        # Brainco: 0.0 = fully open, 1.0 = fully closed
-        # ee_shared_mem["left"][:] = [0.0] * 6
-        # ee_shared_mem["right"][:] = [0.0] * 6
-        # time.sleep(0.8)   # 0.5~1초 유지 (안정적)
 
+        ### sjh 260309
         arm_ctrl.speed_gradual_max()
         arm_ctrl.go_initial_pose(arm_ik)
-        arm_ctrl.go_initial_pose_2(arm_ik)
+        arm_ctrl.go_initial_pose_3(arm_ik)
 
-        ee_shared_mem["left"][:] = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
-        ee_shared_mem["right"][:] = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        # ee_shared_mem["left"][:] = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        # ee_shared_mem["right"][:] = [1.0, 1.0, 1.0, 1.0, 1.0, 1.0]
+        ###
+
+        dp_vla = DualProcess_VLA(
+            # system1_cfg_path="/home/goodman/unitree_v030/act_validation/0820000/pretrained_model",
+            #system1_cfg_path="/home/goodman/unitree_v030/act_validation/260427/0420000_r7_260427/pretrained_model",
+            system1_cfg_path="/home/goodman/unitree_v030/act_validation/B300_backup/lerobot_train_model/260511/dpact_dinov3_variance_config_final_260511/checkpoints/0040000/pretrained_model",
+            ##
+            # system1_cfg_path="/home/goodman/unitree_v030/act_validation/0095000_finetune_r012345/pretrained_model",
+            system2_model_path="Qwen/Qwen2.5-VL-7B-Instruct",
+        )
+        is_first = True
 
         user_input = input("Enter 's' to initialize the robot and start the evaluation: ")
         idx = 0
         print(f"user_input: {user_input}")
         full_state = None
         if user_input.lower() == "s":
-            # "The initial positions of the robot's arm and fingers take the initial positions during data recording."
             logger_mp.info("Initializing robot to starting pose...")
-            tau = robot_interface["arm_ik"].solve_tau(init_arm_pose)
-            robot_interface["arm_ctrl"].ctrl_dual_arm(init_arm_pose, tau)
             time.sleep(1.0)  # Give time for the robot to move
+
             # --- Run Main Loop ---
             logger_mp.info(f"Starting evaluation loop at {cfg.frequency} Hz.")
             while True:
@@ -128,6 +155,15 @@ def eval_policy(
                 observation, current_arm_q = process_images_and_observations(
                     tv_img_array, wrist_img_array, tv_img_shape, wrist_img_shape, is_binocular, has_wrist_cam, arm_ctrl
                 )
+
+                # ===== BGR -> RGB fix =====
+                # image_client.cv2.imdecode gives BGR; the policy was trained
+                # on RGB (convert_unitree_json_to_lerobot.py:178 converts the
+                # collected frames BGR -> RGB before they enter the LeRobot
+                # dataset; lerobot then decodes with torchcodec = RGB).
+                _bgr_to_rgb_inplace(observation)
+                # ==========================
+
                 left_ee_state = right_ee_state = np.array([])
                 if cfg.ee:
                     with ee_shared_mem["lock"]:
@@ -138,19 +174,18 @@ def eval_policy(
                     np.concatenate((current_arm_q, left_ee_state, right_ee_state), axis=0)
                 ).float()
                 observation["observation.state"] = state_tensor
+
+                observation["task"] = step["task"]
+
                 # 2. Get Action from Policy
-                action = predict_action(
-                    observation,
-                    policy,
-                    get_safe_torch_device(policy.config.device),
-                    preprocessor,
-                    postprocessor,
-                    policy.config.use_amp,
-                    step["task"],
-                    use_dataset=cfg.use_dataset,
-                    robot_type=None,
-                )
-                action_np = action.cpu().numpy()
+                if is_first:
+                    print('#' * 30)
+                    print('* task :', step["task"])
+                    print('#' * 30)
+                    dp_vla.start_system2_thread()
+                    is_first = False
+                action_np = dp_vla.forward_system1(obs_dict=observation)
+
                 # 3. Execute Action
                 arm_action = action_np[:arm_dof]
                 tau = arm_ik.solve_tau(arm_action)
@@ -160,7 +195,6 @@ def eval_policy(
                     ee_action_start_idx = arm_dof
                     left_ee_action = action_np[ee_action_start_idx : ee_action_start_idx + ee_dof]
                     right_ee_action = action_np[ee_action_start_idx + ee_dof : ee_action_start_idx + 2 * ee_dof]
-                    # logger_mp.info(f"EE Action: left {left_ee_action}, right {right_ee_action}")
 
                     if isinstance(ee_shared_mem["left"], SynchronizedArray):
                         ee_shared_mem["left"][:] = to_list(left_ee_action)
@@ -181,16 +215,11 @@ def eval_policy(
     finally:
         if image_info:
             cleanup_resources(image_info)
-        try:            
+        try:
             arm_ctrl.go_exit_pose(arm_ik)
         except Exception:
             pass
         logger_mp.info("Finally, exiting program…")
-    # except Exception as e:
-    #     logger_mp.info(f"An error occurred: {e}")
-    # finally:
-    #     if image_info:
-    #         cleanup_resources(image_info)
 
 
 @parser.wrap()
@@ -207,21 +236,7 @@ def eval_main(cfg: EvalRealConfig):
 
     dataset = LeRobotDataset(repo_id=None, root="/home/goodman/unitree_v030/act_validation/1_672/")
 
-    policy = make_policy(cfg=cfg.policy, ds_meta=dataset.meta)
-    policy.eval()
-
-    preprocessor, postprocessor = make_pre_post_processors(
-        policy_cfg=cfg.policy,
-        pretrained_path=cfg.policy.pretrained_path,
-        dataset_stats=rename_stats(dataset.meta.stats, cfg.rename_map),
-        preprocessor_overrides={
-            "device_processor": {"device": cfg.policy.device},
-            "rename_observations_processor": {"rename_map": cfg.rename_map},
-        },
-    )
-
-    with torch.no_grad(), torch.autocast(device_type=device.type) if cfg.policy.use_amp else nullcontext():
-        eval_policy(cfg, dataset, policy, preprocessor, postprocessor)
+    eval_policy(cfg, dataset)
 
     logging.info("End of eval")
 
