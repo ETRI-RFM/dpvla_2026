@@ -13,9 +13,6 @@ DPVLA(Dual-Process VLA) 연구·배포 코드 모음 — 학습(starVLA)·실로
 | `unitree_lerobot/eval_robot/` | ★**DPVLA 실로봇 평가 작업본으로 교체됨** — `eval_g1_dp*.py`(dual-process G1 평가 시리즈), `g1_inference_ui.py`(추론 UI), `robot_control/`(팔 IK + brainco/inspire/unitree 핸드 제어), `image_server/`(카메라 서버) |
 | `data_editor/` · `docs/` · `test/` | 공식 데이터셋 편집기·문서·테스트 |
 
-> 공식 원본 eval_robot(brainco URDF 자산, UniArmL1 지원, 신판 image_server)은 커밋 이력
-> (`d51879c` 직전)에서 복구 가능.
-
 ### `g1_gui_code/` — G1 추론 모니터링 GUI
 웹 기반 G1 추론용 GUI 프로그램 (python -m 실행형).
 
